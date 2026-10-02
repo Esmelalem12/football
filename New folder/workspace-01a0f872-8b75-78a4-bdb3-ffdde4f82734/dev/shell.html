@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AI FOOTBALL: RISE TO GLORY</title>
+<style>
+/*__CSS__*/
+</style>
+</head>
+<body style="background:#050807;margin:0">
+<div id="bootsplash" style="position:fixed;inset:0;background:#050807;color:#22e06c;display:flex;align-items:center;justify-content:center;flex-direction:column;font-family:Arial,Helvetica,sans-serif;z-index:99999;text-align:center">
+  <div style="font-size:36px;font-weight:900;letter-spacing:4px">AI FOOTBALL</div>
+  <div style="font-size:15px;font-weight:700;letter-spacing:7px;color:#9fd8b6;margin-top:8px">RISE TO GLORY</div>
+  <div id="bootmsg" style="margin-top:24px;font-size:12px;color:#5f7f6c;letter-spacing:1px">LOADING ENGINE&hellip;</div>
+</div>
+<script>
+(function(){
+  window.__errs=[];
+  window.addEventListener('error',function(e){ window.__errs.push(String(e.message||e)); });
+  var n=0;
+  var iv=setInterval(function(){
+    n++;
+    var msg=document.getElementById('bootmsg');
+    if(!msg){ clearInterval(iv); return; }
+    var booted=false, stage='';
+    try{ booted=!!(window.AF&&window.AF.__booted); stage=window.AF&&window.AF.__stage?window.AF.__stage:''; }catch(e){}
+    var splashGone=false;
+    try{ splashGone=document.getElementById('bootsplash').style.display==='none'; }catch(e){}
+    if(splashGone||booted){ clearInterval(iv); return; }
+    if(n===3||n===8||n===20){
+      if(!window.AF){
+        msg.style.color='#ff7b88';
+        msg.innerHTML='GAME SCRIPTS ARE BLOCKED IN THIS VIEWER.<br>Use the live server preview, or download the HTML file and open it directly.'+
+          (window.__errs.length?('<br><span style="font-size:10px">'+window.__errs.slice(0,2).join('<br>')+'</span>'):'');
+      } else if(!booted){
+        msg.style.color='#ffcf3f';
+        msg.textContent='STARTING&hellip; STAGE: '+(stage||'init')+(window.__errs.length?(' ERR: '+window.__errs[0]):'');
+      }
+    }
+    if(n>60)clearInterval(iv);
+  },1000);
+})();
+</script>
+<canvas id="gl"></canvas>
+<div id="hud"></div>
+<div id="screens"></div>
+<script>
+/*__THREE__*/
+</script>
+<script>
+/*__GAME__*/
+</script>
+</body>
+</html>
