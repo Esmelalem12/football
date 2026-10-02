@@ -13,7 +13,7 @@ var App=AF.App={
   settings:AF.loadSettings(),
   mode:'boot', match:null, playing:false,
   renderer:null, rendererOK:false,
-  camYaw:0, camPitch:0.44, camDist:9.5, camMode:'follow', camIdle:9,
+  camYaw:0, camPitch:0.36, camDist:8.8, camMode:'follow', camIdle:9,
   matchContext:null, lastSnapshot:null,
   _attractTimer:0, _halftimer:0
 };

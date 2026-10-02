@@ -29,6 +29,11 @@ AF.Renderer.prototype.init=function(quality){
   this.quality=quality||'high';
   var r=this.renderer=new THREE.WebGLRenderer({canvas:this.canvas,antialias:true});
   r.setPixelRatio(Math.min(window.devicePixelRatio||1,1.5));
+  // richer 3D output: tone mapping makes the floodlights, grass and kits read
+  // less like flat canvas art and more like a lit stadium scene.
+  if(THREE.ACESFilmicToneMapping)r.toneMapping=THREE.ACESFilmicToneMapping;
+  r.toneMappingExposure=1.08;
+  if('physicallyCorrectLights' in r)r.physicallyCorrectLights=true;
   var self=this;
   this.canvas.addEventListener('webglcontextlost',function(e){
     e.preventDefault();
@@ -57,7 +62,8 @@ AF.Renderer.prototype.init=function(quality){
   var skyTex=new THREE.CanvasTexture(sky);
   if(THREE.sRGBEncoding)skyTex.encoding=THREE.sRGBEncoding;
   scene.background=skyTex;
-  var cam=this.camera=new THREE.PerspectiveCamera(56,window.innerWidth/window.innerHeight,0.5,900);
+  scene.fog=new THREE.Fog(0x8fb4d6,95,230);
+  var cam=this.camera=new THREE.PerspectiveCamera(62,window.innerWidth/window.innerHeight,0.35,900);
   cam.position.set(0,30,-70);
   // lights
   var hemi=new THREE.HemisphereLight(0xcfe5ff,0x2a4d22,0.95);
@@ -152,6 +158,8 @@ AF.Renderer.prototype.buildStadium=function(){
   var pitch=new THREE.Mesh(new THREE.PlaneGeometry(F.L,F.W),new THREE.MeshLambertMaterial({map:pitchTex}));
   pitch.rotation.x=-Math.PI/2; pitch.receiveShadow=true;
   scene.add(pitch);
+  this.addRaisedPitchLines();
+  this.addGrassVolume();
   // goals + nets
   this.buildGoal(1); this.buildGoal(-1);
   // ad boards
@@ -197,6 +205,19 @@ AF.Renderer.prototype.buildStadium=function(){
     seat.position.set(0,4.6,6.4);
     seat.rotation.x=0.38;
     grp.add(seat);
+    // stepped risers and aisles give the stadium real depth in screenshots
+    var riserMat=new THREE.MeshLambertMaterial({color:0x26323c});
+    for(var rr=0;rr<5;rr++){
+      var riser=new THREE.Mesh(new THREE.BoxGeometry(len,0.18,0.42),riserMat);
+      riser.position.set(0,1.55+rr*1.55,2.1+rr*2.05);
+      grp.add(riser);
+    }
+    var aisleMat=new THREE.MeshLambertMaterial({color:0xb8c5cf});
+    for(var aa=-2;aa<=2;aa+=2){
+      var aisle=new THREE.Mesh(new THREE.BoxGeometry(1.05,0.12,11.5),aisleMat);
+      aisle.position.set(aa*len/7,4.75,6.35); aisle.rotation.x=0.38;
+      grp.add(aisle);
+    }
     // slim light top edge so the rake reads clean from the pitch
     var lip=new THREE.Mesh(new THREE.BoxGeometry(len,0.35,1.2),new THREE.MeshLambertMaterial({color:0x9fb4c4}));
     lip.position.set(0,9.2,11.6);
@@ -234,6 +255,10 @@ AF.Renderer.prototype.buildStadium=function(){
     spr.scale.set(9,9,1);
     spr.position.set(poles[i][0],30.5,poles[i][1]);
     scene.add(spr);
+    var cone=new THREE.Mesh(new THREE.ConeGeometry(7.5,28,24,1,true),new THREE.MeshBasicMaterial({color:0xfff6c8,transparent:true,opacity:0.055,side:THREE.DoubleSide,depthWrite:false}));
+    cone.position.set(poles[i][0],16.2,poles[i][1]);
+    cone.lookAt(0,0.4,0);
+    scene.add(cone);
   }
   // corner flags
   var flagPos=[[F.L/2,F.W/2],[-F.L/2,F.W/2],[F.L/2,-F.W/2],[-F.L/2,-F.W/2]];
@@ -245,6 +270,63 @@ AF.Renderer.prototype.buildStadium=function(){
     fg.position.set(flagPos[i][0]+0.22,1.45,flagPos[i][1]);
     scene.add(fg);
   }
+};
+
+AF.Renderer.prototype.addRaisedPitchLines=function(){
+  var THREE=T(), F=CFG.FIELD, scene=this.scene;
+  var mat=new THREE.MeshLambertMaterial({color:0xf7fff4,emissive:0x223322,emissiveIntensity:0.18});
+  var y=0.018, thick=0.085;
+  function slab(w,d,x,z){
+    var m=new THREE.Mesh(new THREE.BoxGeometry(w,0.018,d),mat);
+    m.position.set(x,y,z); m.receiveShadow=true; scene.add(m); return m;
+  }
+  // touchlines and halfway line are actual raised geometry now, not only painted pixels.
+  slab(F.L,thick,0,-F.W/2); slab(F.L,thick,0,F.W/2);
+  slab(thick,F.W,-F.L/2,0); slab(thick,F.W,F.L/2,0);
+  slab(thick,F.W,0,0);
+  for(var s=-1;s<=1;s+=2){
+    var bx=s*(F.L/2-F.BOX_D/2), sx=s*(F.L/2-F.SIX_D/2);
+    slab(thick,F.BOX_W,bx-s*F.BOX_D/2,0);
+    slab(F.BOX_D,thick,bx,-F.BOX_W/2); slab(F.BOX_D,thick,bx,F.BOX_W/2);
+    slab(thick,F.SIX_W,sx-s*F.SIX_D/2,0);
+    slab(F.SIX_D,thick,sx,-F.SIX_W/2); slab(F.SIX_D,thick,sx,F.SIX_W/2);
+    var spot=new THREE.Mesh(new THREE.CylinderGeometry(0.16,0.16,0.02,18),mat);
+    spot.rotation.x=Math.PI/2; spot.position.set(s*(F.L/2-F.SPOT),y+0.01,0); scene.add(spot);
+  }
+  var centre=new THREE.Mesh(new THREE.TorusGeometry(F.CIRCLE,thick*0.42,8,96),mat);
+  centre.rotation.x=Math.PI/2; centre.position.set(0,y+0.014,0); scene.add(centre);
+  var dot=new THREE.Mesh(new THREE.CylinderGeometry(0.2,0.2,0.02,20),mat);
+  dot.rotation.x=Math.PI/2; dot.position.set(0,y+0.018,0); scene.add(dot);
+};
+
+AF.Renderer.prototype.addGrassVolume=function(){
+  var THREE=T(), F=CFG.FIELD;
+  if(this.quality==='lite')return;
+  // A light sprinkling of tiny vertical blades near the camera height gives parallax,
+  // making still images read as 3D without adding heavy models.
+  var mat=new THREE.MeshLambertMaterial({color:0x3fa54a});
+  var geo=new THREE.ConeGeometry(0.025,0.34,3);
+  var count=520;
+  var inst=THREE.InstancedMesh?new THREE.InstancedMesh(geo,mat,count):null;
+  if(!inst)return;
+  var mtx=new THREE.Matrix4(), pos=new THREE.Vector3(), quat=new THREE.Quaternion(), sc=new THREE.Vector3();
+  for(var i=0;i<count;i++){
+    var x=(Math.random()-0.5)*F.L*0.96, z=(Math.random()-0.5)*F.W*0.96;
+    // keep the pitch markings readable
+    if(Math.abs(x)<0.2||Math.abs(Math.abs(z)-F.W/2)<0.5||Math.abs(Math.abs(x)-F.L/2)<0.5){ i--; continue; }
+    pos.set(x,0.16,z);
+    quat.setFromEuler(new THREE.Euler((Math.random()-0.5)*0.28,Math.random()*Math.PI,(Math.random()-0.5)*0.28));
+    var h=0.65+Math.random()*0.8; sc.set(0.65+Math.random()*0.8,h,0.65+Math.random()*0.8);
+    mtx.compose(pos,quat,sc); inst.setMatrixAt(i,mtx);
+  }
+  inst.castShadow=false; inst.receiveShadow=true;
+  this.scene.add(inst);
+};
+
+AF.Renderer.prototype.makeBlobShadow=function(w,d,opacity){
+  var THREE=T();
+  var sh=new THREE.Mesh(new THREE.CircleGeometry(1,32),new THREE.MeshBasicMaterial({color:0x000000,transparent:true,opacity:opacity||0.22,depthWrite:false}));
+  sh.rotation.x=-Math.PI/2; sh.scale.set(w||0.55,d||0.28,1); sh.position.y=0.022; return sh;
 };
 AF.Renderer.prototype.buildGoal=function(side){
   var THREE=T(), F=CFG.FIELD;
@@ -561,8 +643,12 @@ AF.Renderer.prototype.buildMatch=function(match){
       var kit=p.role==='GK'?{shirt:p.gkColor,shorts:'#111111',sock:p.gkColor}:team.kit;
       var rig=this.makeRig(kit,p.num,skins[(p.id+ti)%skins.length],p.face);
       grp.add(rig);
+      var pShadow=this.makeBlobShadow(0.52,0.28,0.24);
+      grp.add(pShadow);
+      rig.userData.shadow=pShadow;
       rig.rotation.y=Math.PI/2-p.facing;
       rig.position.set(p.pos.x,0,p.pos.z);
+      pShadow.position.set(p.pos.x,0.024,p.pos.z);
       this.rigs[p.id]={rig:rig,p:p};
     }
   }
@@ -571,6 +657,8 @@ AF.Renderer.prototype.buildMatch=function(match){
   refRig.userData.isRef=true;
   this.refRig=refRig;
   grp.add(refRig);
+  var refShadow=this.makeBlobShadow(0.48,0.25,0.2);
+  grp.add(refShadow); refRig.userData.shadow=refShadow;
   // ball
   var bc=makeCanvas(128,64), bx=bc.getContext('2d');
   bx.fillStyle='#fafafa'; bx.fillRect(0,0,128,64);
@@ -582,6 +670,8 @@ AF.Renderer.prototype.buildMatch=function(match){
   ball.castShadow=true;
   this.ballMesh=ball;
   grp.add(ball);
+  this.ballShadow=this.makeBlobShadow(0.24,0.24,0.28);
+  grp.add(this.ballShadow);
   // controlled indicator ring + name tag
   var ring=new THREE.Mesh(new THREE.RingGeometry(0.5,0.72,28),new THREE.MeshBasicMaterial({color:0xffe93c,transparent:true,opacity:0.9,side:THREE.DoubleSide,depthWrite:false}));
   ring.rotation.x=-Math.PI/2; ring.position.y=0.03;
@@ -642,7 +732,7 @@ AF.Renderer.prototype.disposeMatch=function(){
     }
   });
   this.scene.remove(grp);
-  this.matchGroup=null; this.rigs={}; this.ballMesh=null; this.refRig=null; this.attackMarker=null;
+  this.matchGroup=null; this.rigs={}; this.ballMesh=null; this.ballShadow=null; this.refRig=null; this.attackMarker=null;
   this.labelSprites={}; this.fx=[];
   this.match=null;
 };
@@ -692,6 +782,12 @@ AF.Renderer.prototype.sync=function(dt){
     rig.rotation.z=u.damp(rig.rotation.z,u.clamp(-yawRate*0.05,-0.13,0.13),6,dt);
     var bob=Math.abs(Math.cos(ud.phase))*0.05*stride;
     rig.position.y=(p.state==='fall'?-0.25:(p.state==='tackle'?-0.15:0))+bob;
+    if(ud.shadow){
+      ud.shadow.position.set(p.pos.x,0.026,p.pos.z);
+      var ss=1+stride*0.16;
+      ud.shadow.scale.set(0.52*ss,0.28*(1+stride*0.08),1);
+      ud.shadow.material.opacity=p.state==='fall'?0.32:0.22;
+    }
     // AI label
     var ls=this.labelSprites[p.id];
     if(ls){
@@ -715,6 +811,7 @@ AF.Renderer.prototype.sync=function(dt){
   }
   if(this.refRig&&match.ref){
     this.refRig.position.set(match.ref.pos.x,0,match.ref.pos.z);
+    if(this.refRig.userData.shadow)this.refRig.userData.shadow.position.set(match.ref.pos.x,0.026,match.ref.pos.z);
     this.refRig.rotation.y=Math.PI/2-Math.atan2(match.ball.p.z-match.ref.pos.z,match.ball.p.x-match.ref.pos.x);
     var rud=this.refRig.userData;
     var rsp=Math.sin(rud.phase+=dt*4);
@@ -725,6 +822,12 @@ AF.Renderer.prototype.sync=function(dt){
     this.ballMesh.position.set(b.p.x,b.p.y,b.p.z);
     this.ballMesh.rotation.x+=b.v.z*dt*4;
     this.ballMesh.rotation.z-=b.v.x*dt*4;
+    if(this.ballShadow){
+      this.ballShadow.position.set(b.p.x,0.027,b.p.z);
+      var bs=u.clamp(1.15-b.p.y*0.16,0.34,1.15);
+      this.ballShadow.scale.set(0.24*bs,0.24*bs,1);
+      this.ballShadow.material.opacity=u.clamp(0.28-b.p.y*0.05,0.06,0.28);
+    }
   }
   // controlled ring & name
   var c=match.controlled;
@@ -802,8 +905,8 @@ AF.Renderer.prototype.updateCamera=function(dt,st){
   var mode=st.mode;
   if(mode==='menu'){
     this.menuAngle+=dt*0.045;
-    var r2=74;
-    cam.position.set(Math.sin(this.menuAngle)*r2,26+Math.sin(this.menuAngle*0.7)*6,Math.cos(this.menuAngle)*r2);
+    var r2=66;
+    cam.position.set(Math.sin(this.menuAngle)*r2,20+Math.sin(this.menuAngle*0.7)*4,Math.cos(this.menuAngle)*r2);
     var bl=this.match?this.match.ball.p:{x:0,z:0};
     this.lookPos=this.lookPos||new THREE.Vector3(0,1,0);
     this.lookPos.lerp(new THREE.Vector3(bl.x*0.4,0.5,bl.z*0.4),1-Math.exp(-1.5*dt));
@@ -813,9 +916,9 @@ AF.Renderer.prototype.updateCamera=function(dt,st){
   if(mode==='tele'){
     var b=this.match?this.match.ball.p:{x:0,z:0};
     var tx=u.clamp(b.x*0.85,-40,40);
-    cam.position.set(u.damp(cam.position.x,tx,3,dt),30,-(CFG.FIELD.W/2+34));
+    cam.position.set(u.damp(cam.position.x,tx,3,dt),24,-(CFG.FIELD.W/2+28));
     this.lookPos=this.lookPos||new THREE.Vector3();
-    this.lookPos.lerp(new THREE.Vector3(tx*0.95,0.5,b.z*0.6),1-Math.exp(-4*dt));
+    this.lookPos.lerp(new THREE.Vector3(tx*0.95,0.85,b.z*0.6),1-Math.exp(-4*dt));
     cam.lookAt(this.lookPos);
     return;
   }
@@ -826,7 +929,7 @@ AF.Renderer.prototype.updateCamera=function(dt,st){
   var yaw=st.camYaw, pitch=st.camPitch||0.42;
   var cx=tgt.x-Math.sin(yaw)*dist;
   var cz=tgt.z-Math.cos(yaw)*dist;
-  var cy=1.3+Math.sin(pitch)*dist*1.5;
+  var cy=1.15+Math.sin(pitch)*dist*1.25;
   if(!this.camPos)this.camPos=new THREE.Vector3(cx,cy,cz);
   var k=this.camSnapT>0?14:5.5;
   this.camSnapT-=dt;
@@ -840,7 +943,7 @@ AF.Renderer.prototype.updateCamera=function(dt,st){
   var lx=tgt.x+(ball.x-tgt.x)*m, lz=tgt.z+(ball.z-tgt.z)*m;
   if(!this.lookPos)this.lookPos=new THREE.Vector3(lx,1,lz);
   this.lookPos.x=u.damp(this.lookPos.x,lx,7,dt);
-  this.lookPos.y=u.damp(this.lookPos.y,1.1,7,dt);
+  this.lookPos.y=u.damp(this.lookPos.y,1.35,7,dt);
   this.lookPos.z=u.damp(this.lookPos.z,lz,7,dt);
   cam.lookAt(this.lookPos);
 };
