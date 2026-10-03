@@ -1,0 +1,11 @@
+Model Information:
+* title:	Soccer Stadium
+* source:	https://sketchfab.com/3d-models/soccer-stadium-062800b001b24d43bff73db4580bbc62
+* author:	nermin (https://sketchfab.com/nermin)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Soccer Stadium" (https://sketchfab.com/3d-models/soccer-stadium-062800b001b24d43bff73db4580bbc62) by nermin (https://sketchfab.com/nermin) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)

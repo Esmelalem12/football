@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Stadium model viewer</title>
+<style>
+  html,body{margin:0;height:100%;background:#0b1020;color:#dfe6f3;font:13px/1.4 system-ui,sans-serif;overflow:hidden}
+  #gl{display:block;width:100%;height:100%}
+  #hud{position:fixed;left:12px;top:12px;background:rgba(0,0,0,.55);padding:10px 12px;border-radius:8px;max-width:420px}
+  #hud b{color:#fff}
+  #credit{position:fixed;left:12px;bottom:12px;background:rgba(0,0,0,.55);padding:8px 12px;border-radius:8px;max-width:560px}
+  a{color:#8fc3ff}
+</style>
+</head>
+<body>
+<canvas id="gl"></canvas>
+<div id="hud"><b>Soccer Stadium</b> — <span id="status">loading…</span><br>
+Drag to orbit · wheel to zoom · right-drag to pan</div>
+<div id="credit">This work is based on <a href="https://sketchfab.com/3d-models/soccer-stadium-062800b001b24d43bff73db4580bbc62">"Soccer Stadium"</a>
+by <a href="https://sketchfab.com/nermin">nermin</a>, licensed under
+<a href="http://creativecommons.org/licenses/by/4.0/">CC-BY-4.0</a>.</div>
+
+<script src="../../New%20folder/workspace-01a0f872-8b75-78a4-bdb3-ffdde4f82734/dev/three.min.js"></script>
+<script src="GLTFLoader.js"></script>
+<script>
+(function(){
+  var canvas=document.getElementById('gl'), status=document.getElementById('status');
+  var renderer=new THREE.WebGLRenderer({canvas:canvas,antialias:true});
+  renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+  renderer.outputEncoding=THREE.sRGBEncoding;
+  var scene=new THREE.Scene(); scene.background=new THREE.Color(0x87b4e8);
+  var camera=new THREE.PerspectiveCamera(50,1,0.1,20000);
+  scene.add(new THREE.HemisphereLight(0xffffff,0x556677,0.9));
+  var sun=new THREE.DirectionalLight(0xffffff,0.9); sun.position.set(1,2,1); scene.add(sun);
+
+  // minimal orbit controls (no external dependency)
+  var target=new THREE.Vector3(), sph={r:1500,theta:0.6,phi:1.05}, drag=null;
+  function applyCam(){
+    camera.position.set(
+      target.x+sph.r*Math.sin(sph.phi)*Math.sin(sph.theta),
+      target.y+sph.r*Math.cos(sph.phi),
+      target.z+sph.r*Math.sin(sph.phi)*Math.cos(sph.theta));
+    camera.lookAt(target);
+  }
+  canvas.addEventListener('contextmenu',function(e){e.preventDefault();});
+  canvas.addEventListener('pointerdown',function(e){drag={x:e.clientX,y:e.clientY,b:e.button};canvas.setPointerCapture(e.pointerId);});
+  canvas.addEventListener('pointerup',function(){drag=null;});
+  canvas.addEventListener('pointermove',function(e){
+    if(!drag) return; var dx=e.clientX-drag.x, dy=e.clientY-drag.y; drag.x=e.clientX; drag.y=e.clientY;
+    if(drag.b===2){ // pan
+      var k=sph.r*0.0015, right=new THREE.Vector3(), up=new THREE.Vector3(0,1,0);
+      camera.getWorldDirection(right); right.cross(up).normalize();
+      target.addScaledVector(right,-dx*k); target.y+=dy*k;
+    }else{ sph.theta-=dx*0.005; sph.phi=Math.max(0.05,Math.min(Math.PI/2-0.02,sph.phi-dy*0.005)); }
+    applyCam();
+  });
+  canvas.addEventListener('wheel',function(e){e.preventDefault(); sph.r*=Math.exp(e.deltaY*0.001); sph.r=Math.max(5,Math.min(20000,sph.r)); applyCam();},{passive:false});
+
+  function resize(){var w=innerWidth,h=innerHeight;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();}
+  addEventListener('resize',resize); resize();
+
+  new THREE.GLTFLoader().load('soccer_stadium/scene.gltf',function(gltf){
+    var root=gltf.scene; scene.add(root);
+    var box=new THREE.Box3().setFromObject(root), size=box.getSize(new THREE.Vector3());
+    box.getCenter(target); sph.r=size.length()*0.75; applyCam();
+    var tris=0; root.traverse(function(o){if(o.isMesh&&o.geometry){var g=o.geometry;tris+=(g.index?g.index.count:g.attributes.position.count)/3;}});
+    status.textContent='loaded — '+Math.round(tris).toLocaleString()+' triangles, size '+size.x.toFixed(0)+' × '+size.y.toFixed(0)+' × '+size.z.toFixed(0)+' units';
+  },function(ev){ if(ev.total) status.textContent='loading… '+Math.round(100*ev.loaded/ev.total)+'%'; },
+  function(err){ status.textContent='failed to load: '+(err&&err.message||err); console.error(err); });
+
+  applyCam();
+  (function loop(){ requestAnimationFrame(loop); renderer.render(scene,camera); })();
+})();
+</script>
+</body>
+</html>
