@@ -13,7 +13,7 @@ var App=AF.App={
   settings:AF.loadSettings(),
   mode:'boot', match:null, playing:false,
   renderer:null, rendererOK:false,
-  camYaw:0, camPitch:0.36, camDist:8.8, camMode:'follow', camIdle:9,
+  camYaw:0, camPitch:0.24, camDist:5.9, camMode:'follow', camIdle:9,
   matchContext:null, lastSnapshot:null,
   _attractTimer:0, _halftimer:0
 };
@@ -355,7 +355,7 @@ App.updateCameraControl=function(dt){
       App.camIdle+=dt;
       if(Math.abs(mo.x)>0.85)App.camYaw-=Math.sign(mo.x)*dt*1.15;
     }
-    if(AF.Input.wheel)App.camDist=u.clamp(App.camDist+AF.Input.wheel*0.008,6,14.5);
+    if(AF.Input.wheel)App.camDist=u.clamp(App.camDist+AF.Input.wheel*0.008,4.4,14.5);
     // IMPORTANT: while the user is running, the camera NEVER auto-turns —
     // WASD directions must stay constant under your fingers.
     if(!moving&&App.camIdle>1.6&&App.match&&App.match.controlled){
